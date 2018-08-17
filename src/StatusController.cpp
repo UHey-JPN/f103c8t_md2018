@@ -50,7 +50,9 @@ void StatusController::Status_OK(){
 		GPIO::led_r_off();
 		GPIO::led_b_on();
 	}else{
+#ifdef DEBUG
 		__DEBUG_BKPT();
+#endif
 	}
 }
 

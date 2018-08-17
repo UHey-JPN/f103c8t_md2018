@@ -31,7 +31,6 @@
 #include "stm32f1xx.h"
 
 #include "main.h"
-#include "semaphore.h"
 
 #include "initialize.h"
 #include "gpio.h"
@@ -42,6 +41,7 @@
 #include "StatusController.h"
 #include "ModelPid.h"
 #include "SBusUart1.h"
+#include "CommandLine.h"
 
 
 // ----------------------------------------------------------------------------
@@ -62,26 +62,10 @@ EncoderTim1 *encTim1;
 StatusController * statCtrl;
 ModelPid *pidPos;
 SBusUart1 *sbus;
+CommandLine *cmdLine;
 
 volatile bool control_active = false;
 
-
-// ----------------------------------------------------------------------------
-// semaphore list
-volatile int16_t semaphore_ext = 0;
-
-volatile int16_t semaphore_test_triangle = 0;
-volatile int16_t semaphore_test_50 = 0;
-
-volatile int16_t semaphore_start = 0;
-volatile int16_t semaphore_stop = 0;
-volatile int16_t semaphore_out_speed = 0;
-volatile int16_t semaphore_reset_encoder = 0;
-
-volatile int16_t semaphore_disp_deg = 0;
-volatile int16_t semaphore_disp_ref = 0;
-volatile int16_t semaphore_disp_sbus = 0;
-volatile int16_t semaphore_disp_pid_spd = 0;
 
 
 // ----------------------------------------------------------------------------
@@ -124,11 +108,14 @@ extern "C" void USART1_IRQHandler(void){
 
 // ----------------------------------------------------------------------------
 // ----- funcs() --------------------------------------------------------------
+namespace cmd{
 void test_tri(void){
 	uint16_t loop = 500;
 	uint16_t period = out->get_period();
 
 	control_active = false;
+
+	configUart2->transmit("  start triangle test\n");
 
 	statCtrl->Status_READY();
 	HAL_Delay(500);
@@ -153,30 +140,8 @@ void test_tri(void){
 	out->set_out(0);
 	statCtrl->Status_ESTOP();
 
-	control_active = true;
-}
+	configUart2->transmit("  end triangle test\n");
 
-void out_speed(){
-	control_active = false;
-	statCtrl->Status_READY();
-	HAL_Delay(1000);
-
-	statCtrl->Status_OK();
-	HAL_Delay(1000);
-
-
-	while(1){
-		out->set_out(sbus->get_channel(1)*6);
-		configUart2->printf("enc:%d, out:%d\n", encTim1->get_current(), sbus->get_channel(1)*6);
-		if(semaphore_ext > 0){
-			semaphore_ext--;
-			break;
-		}
-		HAL_Delay(100);
-	}
-
-	out->set_out(0);
-	statCtrl->Status_ESTOP();
 	control_active = true;
 }
 
@@ -199,8 +164,8 @@ void test_50(){
 		out->set_out(out_put);
 		configUart2->printf("%d, %d\n", out_put, encTim1->get_speed());
 
-		if(semaphore_ext > 0){
-			semaphore_ext--;
+		if(cmdLine->flag_ext > 0){
+			cmdLine->flag_ext--;
 			break;
 		}
 		//for(int j = 0; j < 100; j++) __NOP();
@@ -211,18 +176,57 @@ void test_50(){
 	control_active = true;
 }
 
+void start(){
+	statCtrl->Status_READY();
+	HAL_Delay(1000);
+	statCtrl->Status_OK();
+	HAL_Delay(1000);
+}
+
+void stop(){
+	statCtrl->Status_ESTOP();
+}
+
+void out_speed(){
+	control_active = false;
+	statCtrl->Status_READY();
+	HAL_Delay(1000);
+
+	statCtrl->Status_OK();
+	HAL_Delay(1000);
+
+
+	while(1){
+		out->set_out(sbus->get_channel(1)*6);
+		configUart2->printf("enc:%d, out:%d\n", encTim1->get_current(), sbus->get_channel(1)*6);
+		if(cmdLine->flag_ext > 0){
+			cmdLine->flag_ext--;
+			break;
+		}
+		HAL_Delay(100);
+	}
+
+	out->set_out(0);
+	statCtrl->Status_ESTOP();
+	control_active = true;
+}
+
+void reset_encoder(){
+	encTim1->reset();
+}
+
 void disp_deg(){
 	while(1){
 		configUart2->printf("deg:%d, CNT:%d, spd:%d\n", encTim1->get_current(), TIM1->CNT, encTim1->get_speed());
-		if(semaphore_ext > 0){
-			semaphore_ext--;
+		if(cmdLine->flag_ext > 0){
+			cmdLine->flag_ext--;
 			break;
 		}
 		HAL_Delay(100);
 	}
 }
 
-void disp_reflector(){
+void disp_ref(){
 	while(1){
 		if(GPIO::limit_center() == 1){
 			configUart2->transmit("center: ON");
@@ -234,8 +238,8 @@ void disp_reflector(){
 		}else{
 			configUart2->transmit(", edge:OFF\n");
 		}
-		if(semaphore_ext > 0){
-			semaphore_ext--;
+		if(cmdLine->flag_ext > 0){
+			cmdLine->flag_ext--;
 			break;
 		}
 		HAL_Delay(100);
@@ -255,8 +259,8 @@ void disp_sbus(){
 		);
 		if(sbus->get_fail_safe() == SBusUart1::FAILSAFE_ACTIVE)   configUart2->transmit(", FS:ACTIVE  \n");
 		if(sbus->get_fail_safe() == SBusUart1::FAILSAFE_INACTIVE) configUart2->transmit(", FS:INACTIVE\n");
-		if(semaphore_ext > 0){
-			semaphore_ext--;
+		if(cmdLine->flag_ext > 0){
+			cmdLine->flag_ext--;
 			break;
 		}
 		HAL_Delay(100);
@@ -266,14 +270,14 @@ void disp_sbus(){
 void disp_pid_spd(){
 	while(1){
 		pidPos->disp(configUart2);
-		if(semaphore_ext > 0){
-			semaphore_ext--;
+		if(cmdLine->flag_ext > 0){
+			cmdLine->flag_ext--;
 			break;
 		}
 		HAL_Delay(25);
 	}
 }
-
+} //end namespace : cmd
 
 void check_motor_direction(){
 	HAL_Delay(1000);
@@ -358,9 +362,25 @@ int main(int argc, char* argv[]){
 	MX_TIM4_Init();
 
 	// ---------------------------------------------
+	// set command list
+	cmdLine = new CommandLine();
+	cmdLine->add_command({"test tri", 0, cmd::test_tri});
+	cmdLine->add_command({"test 50", 0,  cmd::test_50});
+
+	cmdLine->add_command({"start", 0,  cmd::start});
+	cmdLine->add_command({"stop", 0,  cmd::stop});
+	cmdLine->add_command({"out speed", 0,  cmd::out_speed});
+	cmdLine->add_command({"reset encoder", 0,  cmd::reset_encoder});
+
+	cmdLine->add_command({"disp deg", 0,  cmd::disp_deg});
+	cmdLine->add_command({"disp ref", 0,  cmd::disp_ref});
+	cmdLine->add_command({"disp sbus", 0,  cmd::disp_sbus});
+	cmdLine->add_command({"disp pid spd", 0,  cmd::disp_pid_spd});
+
+	// ---------------------------------------------
 	// Initialize class
 	out = new OutputPwm2(50000);
-	configUart2 = new ConfigurationUart2(115200, 10);
+	configUart2 = new ConfigurationUart2(115200, 10, cmdLine);
 	encTim1 = new EncoderTim1(65535);
 	statCtrl = new StatusController(out);
 	pidPos = new ModelPid(14.5L, 0.9L, 0.2L, 0.005L, 10, 53000, -26000);
@@ -418,61 +438,7 @@ int main(int argc, char* argv[]){
 
 	// Infinite loop
 	while (1){
-		if(semaphore_test_triangle > 0){
-			semaphore_test_triangle--;
-			configUart2->transmit("  start triangle test\n");
-			test_tri();
-			configUart2->transmit("  end triangle test\n$ ");
-		}
-		if(semaphore_disp_deg > 0){
-			semaphore_disp_deg--;
-			disp_deg();
-			configUart2->transmit("$ ");
-		}
-		if(semaphore_test_50 > 0){
-			semaphore_test_50--;
-			test_50();
-			configUart2->transmit("$ ");
-		}
-
-		// command系
-		if(semaphore_start > 0){
-			semaphore_start--;
-			statCtrl->Status_READY();
-			HAL_Delay(100);
-			statCtrl->Status_OK();
-			HAL_Delay(100);
-			configUart2->transmit("$ ");
-		}
-		if(semaphore_stop > 0){
-			semaphore_stop--;
-			statCtrl->Status_ESTOP();
-			configUart2->transmit("$ ");
-		}
-		if(semaphore_out_speed > 0){
-			semaphore_out_speed--;
-			out_speed();
-			configUart2->transmit("$ ");
-		}
-		if(semaphore_reset_encoder > 0){
-			semaphore_reset_encoder--;
-			encTim1->reset();
-			configUart2->transmit("$ ");
-		}
-
-		if(semaphore_disp_ref > 0){
-			semaphore_disp_ref--;
-			disp_reflector();
-			configUart2->transmit("$ ");
-		}
-		if(semaphore_disp_sbus > 0){
-			semaphore_disp_sbus--;
-			disp_sbus();
-			configUart2->transmit("$ ");
-		}
-		if(semaphore_disp_pid_spd > 0){
-			semaphore_disp_pid_spd--;
-			disp_pid_spd();
+		if( cmdLine->check_flags() ){
 			configUart2->transmit("$ ");
 		}
 	}

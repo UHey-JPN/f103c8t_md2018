@@ -110,7 +110,9 @@ void OutputPwm2::set_max(int32_t _max){
 	int32_t setting_max = period * MAX_PERMIL / 1000;
 
 	if(_max < 0){
+#ifdef DEBUG
 		__DEBUG_BKPT(); // miss setting
+#endif
 		return;
 	}
 

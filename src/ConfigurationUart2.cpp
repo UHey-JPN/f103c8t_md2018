@@ -14,20 +14,12 @@
 #include "stm32f1xx.h"
 #include "error_handler.h"
 #include "diag/Trace.h"
+#include "CommandLine.h"
 
 
-ConfigurationUart2::ConfigurationUart2(uint32_t baud, uint32_t priority) {
-	command_list.push_back({"test tri", &semaphore_test_triangle});
-	command_list.push_back({"test 50", &semaphore_test_50});
-	command_list.push_back({"start", &semaphore_start});
-	command_list.push_back({"stop", &semaphore_stop});
-	command_list.push_back({"out speed", &semaphore_out_speed});
-	command_list.push_back({"reset encoder", &semaphore_reset_encoder});
 
-	command_list.push_back({"disp deg", &semaphore_disp_deg});
-	command_list.push_back({"disp ref", &semaphore_disp_ref});
-	command_list.push_back({"disp sbus", &semaphore_disp_sbus});
-	command_list.push_back({"disp pid spd", &semaphore_disp_pid_spd});
+ConfigurationUart2::ConfigurationUart2(uint32_t baud, uint32_t priority, CommandLine *_cmdLine) {
+	this->cmdLine = _cmdLine;
 
 	trace_printf("\n");
 	trace_printf("initialize UART2 to configure.\n");
@@ -81,10 +73,9 @@ void ConfigurationUart2::set_receive_it(void){
 void ConfigurationUart2::irq_handle(){
 	static uint8_t previous = 0;
 	uint8_t data = rx_data;
-	bool command_found = false;
 
 	if(data == 0x03){
-		semaphore_ext++;
+		cmdLine->flag_ext++;
 		transmit("^C");
 		return;
 	}
@@ -95,14 +86,9 @@ void ConfigurationUart2::irq_handle(){
 	if(previous == '\r' && data == '\n'){
 		if(line.size() != 0){
 			line.emplace_back('\0');
-			for(uint16_t i = 0; i < command_list.size(); i++){
-				if(strcmp(command_list[i].name, line.data()) == 0){
-					(*(command_list[i].semaphore))++;
-					command_found = true;
-					semaphore_ext = 0;
-				}
-			}
-			if( !command_found ){
+			if( cmdLine->check_cmdLine(line) ){
+				cmdLine->flag_ext = 0;
+			}else{
 				transmit( "command not found\n$ " );
 			}
 		}else{

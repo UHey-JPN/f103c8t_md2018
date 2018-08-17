@@ -8,22 +8,22 @@
 #ifndef CONFIGURATIONUART2_H_
 #define CONFIGURATIONUART2_H_
 
+#include "ConfigurationUart2.h"
+
 #include <vector>
 
 #include "stm32f1xx.h"
-#include "semaphore.h"
 
-typedef struct{
-	const char* name;
-	volatile int16_t *semaphore;
-} StructCommand;
+#include "CommandLine.h"
+
 
 
 class ConfigurationUart2 {
 private:
 	uint8_t rx_data = 0;
 	std::vector<char> line;
-	std::vector<StructCommand> command_list;
+	CommandLine *cmdLine;
+
 
 public:
 	UART_HandleTypeDef huart2;
@@ -31,7 +31,7 @@ public:
 
 
 public:
-	ConfigurationUart2(uint32_t baud, uint32_t priority);
+	ConfigurationUart2(uint32_t baud, uint32_t priority, CommandLine *_cmdLine);
 
 	void start(void);
 
