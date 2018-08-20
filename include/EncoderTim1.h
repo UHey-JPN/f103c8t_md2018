@@ -12,6 +12,7 @@
 
 class EncoderTim1 {
 private:
+	constexpr static uint32_t OFFSET = 32766;
 	uint32_t period;
 	int32_t period_half;
 	int32_t spd;

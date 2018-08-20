@@ -81,10 +81,16 @@ void EncoderTim1::reset_half(void){
 }
 
 void EncoderTim1::reset_val(uint32_t _val){
-	TIM1->CNT = _val;
-	curt_fine = _val;
-	pre_curt_fine = _val;
-	curt_coarse = 0;
+	int32_t val = _val - OFFSET;
+	if(val >= 0){
+		curt_coarse = 0;
+	}else{
+		val += 0xFFFF;
+		curt_coarse = -1;
+	}
+	TIM1->CNT = val;
+	curt_fine = val;
+	pre_curt_fine = val;
 
 	update();
 }
@@ -110,7 +116,7 @@ void EncoderTim1::update(void){
 
 
 int32_t EncoderTim1::get_current(){
-	return curt_fine + curt_coarse*period;
+	return curt_fine + curt_coarse*period + OFFSET;
 }
 int32_t EncoderTim1::get_speed(){
 	return this->spd;
