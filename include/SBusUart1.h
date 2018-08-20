@@ -21,10 +21,14 @@ private:
 	constexpr static uint8_t STARTBYTE = 0x0f;
 	constexpr static uint8_t ENDBYTE = 0x00;
 
-	int16_t decoderErrorFrames = 0;
+	uint16_t decoderErrorFrames = 0;
 	int16_t channels[18] = {0};
 	int16_t failsafe = 0;
 	int16_t lostFrames = 0;
+
+	constexpr static uint16_t ERR_STOP = 64;
+	constexpr static uint16_t ERR_CRITICAL = 256;
+	uint16_t error_rate = 128;
 
 
 public:
@@ -32,6 +36,9 @@ public:
 	constexpr static uint8_t FAILSAFE_INACTIVE = 0;
 	constexpr static uint8_t FAILSAFE_ACTIVE = 1;
 
+private:
+	void error_reset();
+	void error();
 
 public:
 	SBusUart1(uint32_t priority);
@@ -42,8 +49,12 @@ public:
 	void set_receive_it();
 	int8_t get_rx_data();
 	int16_t get_channel(int channel);
-	int16_t get_decoder_err();
+	uint16_t get_decoder_err();
 	int16_t get_fail_safe();
+	int16_t get_lost_frames();
+
+	uint16_t get_error_rate();
+	bool is_active();
 
 };
 

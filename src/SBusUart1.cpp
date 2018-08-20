@@ -73,8 +73,9 @@ void SBusUart1::irq_handle(){
 	static uint8_t buffer[25];
 
 	if(buf_count == 0 && rx != STARTBYTE){
-		//incorrect start byte, out of sync
+		// incorrect start byte, out of sync
 		decoderErrorFrames++;
+		error();
 		return;
 	}
 
@@ -86,6 +87,7 @@ void SBusUart1::irq_handle(){
 
 		if(buffer[23] != ENDBYTE){
 			decoderErrorFrames++;
+			error();
 			return;
 		}
 
@@ -119,6 +121,8 @@ void SBusUart1::irq_handle(){
 			lostFrames++;
 		}
 
+		error_reset();
+
 	}
 }
 
@@ -135,10 +139,36 @@ int16_t SBusUart1::get_channel(int channel) {
 }
 
 
-int16_t SBusUart1::get_decoder_err(){
+uint16_t SBusUart1::get_decoder_err(){
 	return decoderErrorFrames;
 }
 int16_t SBusUart1::get_fail_safe(){
 	return failsafe;
+}
+int16_t SBusUart1::get_lost_frames(){
+	return lostFrames;
+}
+uint16_t SBusUart1::get_error_rate(){
+	return error_rate;
+}
+
+bool SBusUart1::is_active(){
+	if(error_rate < ERR_STOP){
+		return true;
+	}else{
+		return false;
+	}
+}
+
+
+void SBusUart1::error_reset(){
+//	if(error_rate < ERR_CRITICAL){
+		error_rate = 0;
+//	}
+}
+void SBusUart1::error(){
+	if(error_rate < ERR_CRITICAL){
+		error_rate++;
+	}
 }
 

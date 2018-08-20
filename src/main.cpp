@@ -86,8 +86,12 @@ extern "C" void TIM4_IRQHandler(void) {
 	encTim1->update();
 
 	if(control_active){
-		int32_t in = sbus->get_channel(1);
-//		pidPos->set_target(in*49);
+		int32_t in;
+		if(sbus->is_active()){
+			in = sbus->get_channel(1);
+		} else{
+			in = 0;
+		}
 		pidPos->set_target(in*70);
 		int32_t out_spd = pidPos->step_double(encTim1->get_current());
 		out->set_out(out_spd);
@@ -259,14 +263,15 @@ void disp_ref(){
 
 void disp_sbus(){
 	while(1){
-		configUart2->printf("1:%5d, 2:%5d, 3:%5d, 4:%5d, 5:%5d, 6:%5d, err:%d",
+		configUart2->printf("1:%5d, 2:%5d, 3:%5d, 4:%5d, 5:%5d, 6:%5d, err:%4d, ErrRate:%4d",
 				sbus->get_channel(1),
 				sbus->get_channel(2),
 				sbus->get_channel(3),
 				sbus->get_channel(4),
 				sbus->get_channel(5),
 				sbus->get_channel(6),
-				sbus->get_decoder_err()
+				sbus->get_decoder_err(),
+				sbus->get_error_rate()
 		);
 		if(sbus->get_fail_safe() == SBusUart1::FAILSAFE_ACTIVE)   configUart2->transmit(", FS:ACTIVE  \n");
 		if(sbus->get_fail_safe() == SBusUart1::FAILSAFE_INACTIVE) configUart2->transmit(", FS:INACTIVE\n");
