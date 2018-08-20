@@ -108,6 +108,15 @@ extern "C" void USART1_IRQHandler(void){
 
 // ----------------------------------------------------------------------------
 // ----- funcs() --------------------------------------------------------------
+namespace myMath{
+template<typename T>
+T abs(T in){
+	if(in >= 0){
+		return in;
+	}
+	return -in;
+}
+}// end namespace: math
 namespace cmd{
 void test_tri(void){
 	uint16_t loop = 500;
@@ -332,12 +341,12 @@ void goto_origin(int32_t spd){
 	}else{
 		out->set_out(-spd);
 	}
-	for(uint32_t i = 0; ; i++){
+	for(uint32_t i = 0; ;){
 		if(curt != GPIO::limit_center()) break;
+		if(myMath::abs<int32_t>( encTim1->get_speed() ) > 5) i++;
 		if(i > 5000000){
 			out->set_out(0);
 			configUart2->transmit("fail to goto origin\n");
-//			trace_printf("fail to goto origin\n");
 			break;
 		}
 	}
