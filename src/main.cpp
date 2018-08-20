@@ -348,7 +348,7 @@ void goto_origin(int32_t spd){
 	}
 	for(uint32_t i = 0; ;){
 		if(curt != GPIO::limit_center()) break;
-		if(myMath::abs<int32_t>( encTim1->get_speed() ) > 5) i++;
+		if(myMath::abs<int32_t>( encTim1->get_speed() ) < 5) i++;
 		if(i > 5000000){
 			out->set_out(0);
 			configUart2->transmit("fail to goto origin\n");
