@@ -178,8 +178,10 @@ void test_50(){
 
 void start(){
 	statCtrl->Status_READY();
+	configUart2->transmit("  READY?\n");
 	HAL_Delay(1000);
 	statCtrl->Status_OK();
+	configUart2->transmit("  OK!\n");
 	HAL_Delay(1000);
 }
 
@@ -330,7 +332,15 @@ void goto_origin(int32_t spd){
 	}else{
 		out->set_out(-spd);
 	}
-	while(curt == GPIO::limit_center());
+	for(uint32_t i = 0; ; i++){
+		if(curt != GPIO::limit_center()) break;
+		if(i > 5000000){
+			out->set_out(0);
+			configUart2->transmit("fail to goto origin\n");
+//			trace_printf("fail to goto origin\n");
+			break;
+		}
+	}
 	encTim1->reset();
 
 	out->set_out(0);
@@ -413,7 +423,6 @@ int main(int argc, char* argv[]){
 	// Display Initial message to UART2
 	trace_printf("\ncomplete initializing\n");
 	configUart2->transmit("\n\n");
-	configUart2->transmit("start command line\n$ ");
 
 	// ---------------------------------------------
 	// Reset encoder position
@@ -429,6 +438,7 @@ int main(int argc, char* argv[]){
 //	trace_printf("\n%d(0.1us/cnt)\n", c);
 
 
+	configUart2->transmit("start command line\n$ ");
 	control_active = true;
 
 	statCtrl->Status_READY();
